@@ -877,6 +877,8 @@ settings:
   remember_video_quality_confirm_message: B 站本身就有記住畫質的功能，外掛的記住畫質功能僅用於網路不佳時避免 B 站自動試用高畫質。若網路狀況良好，無需開啟此功能，使用 B 站預設的記憶邏輯即可。
   remember_video_aspect_ratio: 記住影片比例
   remember_video_aspect_ratio_desc: 啟用後，播放器會記住你上次選擇的影片比例，並在下次打開影片時自動套用
+  enable_high_speed_mode: 高倍速播放
+  enable_high_speed_mode_desc: 啟用後在播放器原生倍速選單中添加3x、4x、5x高倍速選項
   auto_exit_fullscreen_on_end: 全螢幕/網頁全螢幕播放完畢後自動退出
   auto_exit_fullscreen_on_end_desc: 啟用後，當影片播放結束且沒有單集循環、隨機播放、自動連播等後續播放行為時，會自動退出全螢幕模式
   auto_exit_fullscreen_exclude_auto_play: 自動連播下除外
