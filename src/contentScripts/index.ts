@@ -41,6 +41,7 @@ import { setupNativeHomeFeedHistory } from './features/nativeHomeFeedHistory'
 import { setupNotificationStateInvalidation } from './features/notificationStateInvalidation'
 import { setupOpusDetailDrawerLayout } from './features/opusDetailDrawerLayout'
 import { setupWatchLaterAutoRemove } from './features/watchLaterAutoRemove'
+import { initHighSpeedControl } from './highSpeedControl'
 import type { PageLoadingGuard } from './pageLoading'
 import { initTouchPlayerGestures } from './touchPlayerGestures'
 import { initVideoAspectRatioMemory } from './videoAspectRatioMemory'
@@ -1350,6 +1351,7 @@ else if (shouldInitializeContentScript) {
       setupShortcutHandlers()
     runWhenNativeVideoHeaderStable(initBewlyWidescreenControl)
     initTouchPlayerGestures()
+    initHighSpeedControl()
 
     // Initialize Favorite Dialog Enhancement (for video pages)
     if (isVideoOrBangumiPage()) {

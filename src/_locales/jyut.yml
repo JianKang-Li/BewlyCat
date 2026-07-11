@@ -803,6 +803,8 @@ settings:
   remember_playback_rate_desc: 開啟後，播放器會記住你上次設定嘅倍速，並喺下次開片嗰陣自動套用
   remember_video_aspect_ratio: 記住影片比例
   remember_video_aspect_ratio_desc: 啟用後，播放器會記住你上次揀嘅影片比例，並喺下次打開影片嗰陣自動套用
+  enable_high_speed_mode: 高倍速播放
+  enable_high_speed_mode_desc: 啟用後喺播放器原生倍速選單入面加3x、4x、5x高倍速選項
   auto_exit_fullscreen_on_end: 全螢幕/網頁全螢幕播完後自動退出
   auto_exit_fullscreen_on_end_desc: 啟用後，影片播完而且冇單集循環、隨機播放、自動連播等後續播放行為時，會自動退出全螢幕模式
   auto_exit_fullscreen_exclude_auto_play: 自動連播下除外

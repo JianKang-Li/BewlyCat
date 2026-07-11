@@ -274,6 +274,13 @@ const playerDefaultStateOptions = computed<{ label: string, value: PlayerDefault
         </div>
       </SettingsItemSubgroup>
 
+      <SettingsItem
+        :title="t('settings.enable_high_speed_mode')"
+        :desc="t('settings.enable_high_speed_mode_desc')"
+      >
+        <Radio v-model="settings.enableHighSpeedMode" />
+      </SettingsItem>
+
       <SettingsItemSubgroup
         :title="t('settings.group_video_page_actions')"
         :desc="t('settings.group_video_page_actions_desc')"

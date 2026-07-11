@@ -536,6 +536,9 @@ export interface Settings {
   rememberVideoAspectRatio: boolean // 启用视频比例记忆功能
   savedVideoAspectRatio: VideoAspectRatio | null // 记住的视频比例；首次启用时沿用播放器当前值
 
+  // 高倍速播放设置
+  enableHighSpeedMode: boolean // 启用高倍速播放功能（在原生倍速菜单中添加3x-5x选项）
+
   // 自定义播放设置
   enableRandomPlay: boolean // 启用视频合集自定义播放功能
   defaultCustomPlayOrder: DefaultCustomPlayOrder // 播放器自定义播放控件的默认选中顺序
@@ -881,6 +884,9 @@ export const originalSettings: Settings = {
   // 视频比例记忆设置
   rememberVideoAspectRatio: false, // 启用视频比例记忆功能
   savedVideoAspectRatio: null, // 首次启用时记住播放器当前比例
+
+  // 高倍速播放设置
+  enableHighSpeedMode: false, // 启用高倍速播放功能（在原生倍速菜单中添加3x-5x选项）
 
   // 自定义播放设置
   enableRandomPlay: false, // 启用视频合集自定义播放功能

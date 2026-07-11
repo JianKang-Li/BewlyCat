@@ -1175,12 +1175,40 @@ export function resetPlaybackRate() {
   }
 }
 
+// 标记是否正在应用记忆倍速（避免播放器重置倍速时覆盖用户保存的值）
+let isApplyingRememberedRate = false
+// 延迟更新 savedPlaybackRate 的定时器，延迟期间可被 applyRememberedPlaybackRate 取消
+let rateUpdateTimer: ReturnType<typeof setTimeout> | null = null
+// 高倍速重试定时器，用于在B站播放器重置倍速后重新应用
+let highSpeedRetryTimer: ReturnType<typeof setTimeout> | null = null
+// 标记视频是否正在加载（切换视频时B站会重置倍速，期间不应保存ratechange）
+let isVideoLoading = false
+// 视频加载超时定时器：兜底清除 isVideoLoading，防止 applyRememberedPlaybackRate 未被调用时标志卡死
+let videoLoadingTimeout: ReturnType<typeof setTimeout> | null = null
+
+// 标记视频正在加载，暂停 ratechange 保存，等 applyRememberedPlaybackRate 接管
+function markVideoLoading() {
+  isVideoLoading = true
+  if (videoLoadingTimeout)
+    clearTimeout(videoLoadingTimeout)
+  videoLoadingTimeout = setTimeout(() => {
+    isVideoLoading = false
+    videoLoadingTimeout = null
+  }, 5000)
+}
+
 // 应用记住的倍速
 export function applyRememberedPlaybackRate() {
   if (applyRateRetryTimer !== undefined)
     window.clearTimeout(applyRateRetryTimer)
   applyRateRetryTimer = undefined
   applyRateRetryCount = 0
+  // 清理可能残留的高速重试定时器和标志，防止卡死
+  if (highSpeedRetryTimer) {
+    clearTimeout(highSpeedRetryTimer)
+    highSpeedRetryTimer = null
+  }
+  isApplyingRememberedRate = false
   tryApplyRememberedPlaybackRate()
 }
 
@@ -1203,17 +1231,65 @@ function tryApplyRememberedPlaybackRate() {
   }
   applyRateRetryCount = 0
 
-  // 确保倍速值在有效范围内
   const savedRate = settings.value.savedPlaybackRate
-  if (savedRate >= 0.25 && savedRate <= 5) {
-    // B 站站内切换推荐视频时会复用 video 元素并重新加载媒体资源。
-    // 媒体加载会将 playbackRate 恢复为 defaultPlaybackRate，因此两者都要同步。
-    video.defaultPlaybackRate = savedRate
-    video.playbackRate = savedRate
-    // 只在倍速不是1时显示状态
-    if (savedRate !== 1) {
-      showState(t('player_state.speed', { rate: savedRate }))
+  if (savedRate < 0.25 || savedRate > 5)
+    return
+
+  // 正在应用记忆倍速，让 ratechange 监听器忽略随后的倍速重置
+  isApplyingRememberedRate = true
+  isVideoLoading = false
+  if (videoLoadingTimeout) {
+    clearTimeout(videoLoadingTimeout)
+    videoLoadingTimeout = null
+  }
+
+  // B 站站内切换推荐视频时会复用 video 元素并重新加载媒体资源。
+  // 媒体加载会将 playbackRate 恢复为 defaultPlaybackRate，因此两者都要同步。
+  video.defaultPlaybackRate = savedRate
+  video.playbackRate = savedRate
+  // 只在倍速不是1时显示状态
+  if (savedRate !== 1) {
+    showState(t('player_state.speed', { rate: savedRate }))
+  }
+
+  // 超过2倍速时，B站播放器会将其重置回原生范围（最高2x），
+  // 需要持续重试重新应用，直到倍速连续稳定或达到最大重试次数。
+  // 每次重试都重新获取 video 元素，避免SPA切换视频时元素被替换导致操作旧元素。
+  if (savedRate > 2) {
+    let retryCount = 0
+    let stableCount = 0
+    let lastVideo = video
+    const maxRetries = 8
+    const reapply = () => {
+      const currentVideo = getVideoElement()
+      retryCount++
+      // video 元素被替换时，重新挂载 ratechange 监听器到新元素
+      if (currentVideo && currentVideo !== lastVideo) {
+        lastVideo = currentVideo
+        startPlaybackRateMonitoring()
+      }
+      if (currentVideo && Math.abs(currentVideo.playbackRate - savedRate) > 0.01) {
+        currentVideo.playbackRate = savedRate
+        stableCount = 0
+      }
+      else {
+        stableCount++
+      }
+      // 连续稳定3次或达到最大重试次数，停止
+      if (stableCount >= 3 || retryCount >= maxRetries) {
+        isApplyingRememberedRate = false
+        highSpeedRetryTimer = null
+        return
+      }
+      highSpeedRetryTimer = setTimeout(reapply, 300)
     }
+    highSpeedRetryTimer = setTimeout(reapply, 300)
+  }
+  else {
+    // 2x及以下倍速在B站播放器原生支持范围内，不会被动重置
+    setTimeout(() => {
+      isApplyingRememberedRate = false
+    }, 100)
   }
 }
 
@@ -1252,18 +1328,51 @@ function tryStartPlaybackRateMonitoring() {
   }
   monitoredPlaybackRateVideos.add(video)
 
-  // 监听倍速变化事件，这会捕获所有倍速变化（包括UI操作）
+  // 切换视频时B站会触发 emptied/loadstart 并重置倍速，
+  // 此时设置标志让 ratechange 监听器忽略重置，等 applyRememberedPlaybackRate 接管。
+  // emptied 比 loadstart 更早触发，尽量提前拦截B站的倍速重置。
+  video.addEventListener('emptied', markVideoLoading)
+  video.addEventListener('loadstart', markVideoLoading)
+
   video.addEventListener('ratechange', () => {
-    if (settings.value.rememberPlaybackRate) {
-      const currentRate = video.playbackRate
-      // 确保倍速值在有效范围内
-      if (currentRate >= 0.25 && currentRate <= 5) {
-        settings.value.savedPlaybackRate = currentRate
-        // 让同一个 video 加载下一条推荐视频时沿用当前倍速，而不是回落到 1。
-        if (video.defaultPlaybackRate !== currentRate)
-          video.defaultPlaybackRate = currentRate
+    if (!settings.value.rememberPlaybackRate)
+      return
+    // 正在应用记忆倍速或视频加载期间，忽略所有 ratechange
+    if (isApplyingRememberedRate || isVideoLoading)
+      return
+
+    const currentRate = video.playbackRate
+    // 确保倍速值在有效范围内
+    if (currentRate < 0.25 || currentRate > 5)
+      return
+
+    // 高倍速(>2x)立即保存，避免B站播放器随后重置倍速触发 ratechange 把保存值覆盖回 ≤2x
+    if (currentRate > 2) {
+      if (rateUpdateTimer) {
+        clearTimeout(rateUpdateTimer)
+        rateUpdateTimer = null
       }
+      settings.value.savedPlaybackRate = currentRate
+      // 让同一个 video 加载下一条推荐视频时沿用当前倍速，而不是回落到 1。
+      if (video.defaultPlaybackRate !== currentRate)
+        video.defaultPlaybackRate = currentRate
+      return
     }
+
+    // 正常延迟更新 savedPlaybackRate，给 applyRememberedPlaybackRate 一个机会取消此更新。
+    // 延迟2秒：切换视频时 applyRememberedPlaybackRate 会在1-2秒内被调用并取消此定时器，
+    // 从而避免B站播放器重置倍速（ratechange先于emptied触发时）污染 savedPlaybackRate。
+    if (rateUpdateTimer)
+      clearTimeout(rateUpdateTimer)
+    rateUpdateTimer = setTimeout(() => {
+      rateUpdateTimer = null
+      if (isApplyingRememberedRate || isVideoLoading)
+        return
+      settings.value.savedPlaybackRate = currentRate
+      // 让同一个 video 加载下一条推荐视频时沿用当前倍速，而不是回落到 1。
+      if (video.defaultPlaybackRate !== currentRate)
+        video.defaultPlaybackRate = currentRate
+    }, 2000)
   })
 
   // 部分播放器更新会替换媒体资源但保留 video 节点；元数据就绪后再同步一次，

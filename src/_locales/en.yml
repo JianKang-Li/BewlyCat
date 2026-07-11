@@ -882,6 +882,9 @@ settings:
   remember_video_aspect_ratio_desc: >
     When enabled, the player will remember your last selected video aspect ratio
     and automatically apply it when opening videos
+  enable_high_speed_mode: High Speed Playback
+  enable_high_speed_mode_desc: >
+    Enable to add 3x, 4x, 5x high speed options to the native player speed menu
   auto_exit_fullscreen_on_end: Auto exit fullscreen/webFullscreen when video ends
   auto_exit_fullscreen_on_end_desc: >
     When enabled, the player will automatically exit fullscreen mode when the video finishes playing and no single-loop, random-play, or auto-play behavior is active
